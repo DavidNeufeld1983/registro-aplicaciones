@@ -478,16 +478,17 @@ async function renderPrint(params) {
     body.push(h('tr', {}, fields.map((f) => h('td', {},
       !r ? ' ' : f.key === 'fecha' ? fmtDate(r.fecha) : f.type === 'number' ? fmtNum(r[f.key]) : r[f.key]))));
   }
-  const sheet = h('div', { class: 'print-sheet' },
+  // La hoja se puede corregir a mano antes de imprimir; esos cambios no se guardan en los registros.
+  const tbody = h('tbody', {}, body);
+  const sheet = h('div', { class: 'print-sheet', contenteditable: 'true', spellcheck: 'false' },
     h('h3', {}, s.titulo), h('h3', {}, 'INCLUIR TODOS LOS TRATAMIENTOS'),
     h('div', { class: 'hdr' },
       h('b', {}, 'PRODUCTOR:'), h('div', { class: 'line' }, s.productor), h('div'),
       h('b', {}, 'LOCALIZACIÓN:'), h('div', { class: 'line' }, s.localizacion), h('div', { class: 'line' }, s.campo)),
-    h('div', {}, h('b', {}, 'Incluir aplicaciones de: '), s.incluir),
-    h('div', { style: 'margin-bottom:10px' }, h('b', {}, 'Enviar este reporte a: '), s.enviar_a),
+    h('div', { style: 'margin-bottom:10px' }, h('b', {}, 'Incluir aplicaciones de: '), s.incluir),
     h('table', {},
       h('thead', {}, h('tr', {}, fields.map((f) => h('th', {}, f.label.toUpperCase())))),
-      h('tbody', {}, body)),
+      tbody),
     h('div', { class: 'foot' },
       h('b', {}, 'Firma del productor:'), h('div', { class: 'line' }),
       h('b', {}, 'Fecha:'), h('div', { class: 'line' }, fmtDate(todayISO()))),
@@ -496,7 +497,12 @@ async function renderPrint(params) {
     h('div', { class: 'row no-print', style: 'margin-bottom:12px' },
       h('a', { class: 'btn', href: '#/registros' + (params.toString() ? '?' + params : ''), style: 'text-decoration:none' }, '← Volver'),
       h('button', { class: 'btn primary', onclick: () => window.print() }, 'Imprimir o guardar como PDF'),
-      h('span', { class: 'muted small' }, `${rows.length} registro${rows.length === 1 ? "" : "s"}. Usa los filtros de fecha en la lista para elegir el periodo.`)),
+      h('button', { class: 'btn', onclick: () => tbody.append(h('tr', {}, fields.map(() => h('td', {}, '\u00a0')))) }, '+ Renglón'),
+      h('button', { class: 'btn', onclick: () => tbody.lastElementChild?.remove() }, '− Renglón'),
+      h('button', { class: 'btn', onclick: () => renderPrint(params) }, 'Deshacer cambios')),
+    h('p', { class: 'muted small no-print' },
+      `${rows.length} registro${rows.length === 1 ? '' : 's'}. Toca cualquier texto de la hoja para corregirlo antes de imprimir. `,
+      'Estos cambios son solo para esta hoja y no modifican los registros guardados.'),
     h('div', { class: 'card', style: 'padding:0;overflow-x:auto' }, sheet),
   ]);
 }
@@ -597,7 +603,7 @@ async function renderSettings() {
   const s = meta.settings;
   const defs = [
     ['titulo', 'Título del reporte'], ['productor', 'Productor'], ['localizacion', 'Localización'],
-    ['campo', 'Campo'], ['incluir', 'Incluir aplicaciones de'], ['enviar_a', 'Enviar este reporte a'],
+    ['campo', 'Campo'], ['incluir', 'Incluir aplicaciones de'],
   ];
   const inputs = {};
   const form = h('form', { class: 'card' },

@@ -32,7 +32,6 @@ const DEFAULT_SETTINGS = {
   localizacion: 'Col. El Capulin',
   campo: 'Campo # 8',
   incluir: 'NUTRICIÓN',
-  enviar_a: 'valleazul.bpa@outlook.com, genaro.noriega16@icloud.com, charlibarbozaavila19@gmail.com',
 };
 const DEFAULT_OPTIONS = {
   tipo_producto: ['Fertilizante', 'Fungicida', 'Insecticida', 'Herbicida', 'Acaricida', 'Bioestimulante', 'Coadyuvante', 'Regulador de crecimiento'],
@@ -271,13 +270,16 @@ async function route(req, context) {
 
   if (p === '/api/meta' && m === 'GET') {
     requireUser();
-    return json(200, { fields: FIELDS, settings: { ...DEFAULT_SETTINGS, ...(await read('settings', {})) } });
+    const stored = await read('settings', {});
+    const settings = Object.fromEntries(Object.keys(DEFAULT_SETTINGS).map((k) => [k, stored[k] ?? DEFAULT_SETTINGS[k]]));
+    return json(200, { fields: FIELDS, settings });
   }
   if (p === '/api/settings' && m === 'PUT') {
     requireAdmin();
     const b = await body(req);
     await mutate('settings', DEFAULT_SETTINGS, (s) => {
       for (const k of Object.keys(DEFAULT_SETTINGS)) if (k in b) s[k] = String(b[k] ?? '').trim().slice(0, 500);
+      delete s.enviar_a;
     });
     return json(200, { ok: true });
   }

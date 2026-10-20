@@ -188,3 +188,13 @@ a.btn.primary { color: #fff; }
 main.wide { max-width: none; }
 table.records td.nowrap { white-space: nowrap; }
 table.records { font-size: 13px; }
+
+/* Dropdowns: el texto largo se corta con "…" en vez de ensanchar la caja */
+.combo { min-width: 0; }
+.combo-btn { min-width: 0; }
+.combo-btn .val { flex: 1; min-width: 0; }
+.combo-opt { overflow-wrap: anywhere; }
+
+/* Hoja editable antes de imprimir */
+.print-sheet[contenteditable]:focus { outline: none; }
+@media screen { .print-sheet td, .print-sheet .line { cursor: text; } }
