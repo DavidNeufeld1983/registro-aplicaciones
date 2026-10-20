@@ -213,3 +213,5 @@ input[type="date"]::-webkit-calendar-picker-indicator, input[type="time"]::-webk
   .filters { grid-template-columns: 1fr 1fr; }
   .filters .field:has(input[type="search"]), .filters .field:has(select) { grid-column: 1 / -1; }
 }
+.badge.warn { background: #fff1d6; color: #8a5300; white-space: nowrap; }
+@media (prefers-color-scheme: dark) { .badge.warn { background: #3a2d12; color: #f3c56b; } }

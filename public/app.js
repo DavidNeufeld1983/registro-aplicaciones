@@ -63,7 +63,9 @@ function fmtStamp(sqlUtc) {
   const d = new Date(sqlUtc.replace(' ', 'T') + 'Z');
   return d.toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' });
 }
-const fmtNum = (n) => (n == null ? '' : Number(n).toLocaleString('es-MX', { maximumFractionDigits: 3 }));
+const fmtNum = (n) => (n == null || n === '' ? '' : Number(n).toLocaleString('es-MX', { maximumFractionDigits: 3 }));
+// Campos vacíos de un registro (se puede guardar incompleto y completarlo después).
+const emptyFields = (r) => (state.meta?.fields || []).filter((f) => r[f.key] == null || r[f.key] === '');
 
 function confirmDialog(message, okText = 'Aceptar') {
   return new Promise((resolve) => {
@@ -341,16 +343,10 @@ async function renderForm(editId) {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const body = {};
-    const missing = [];
-    for (const f of fields) {
-      body[f.key] = inputs[f.key].value;
-      const wrap = form.querySelector(`[data-key="${f.key}"]`);
-      const empty = String(body[f.key] ?? '').trim() === '';
-      wrap.classList.toggle('invalid', empty);
-      if (empty) missing.push(f.label);
-    }
-    if (missing.length) {
-      err.replaceChildren(h('div', { class: 'error' }, `Llena todos los campos. Faltan: ${missing.join(', ')}`));
+    for (const f of fields) body[f.key] = inputs[f.key].value;
+    const missing = fields.filter((f) => String(body[f.key] ?? '').trim() === '');
+    if (fields.every((f) => f.key === 'fecha' || missing.includes(f))) {
+      err.replaceChildren(h('div', { class: 'error' }, 'Llena al menos un dato además de la fecha.'));
       return window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     saveBtn.disabled = true;
@@ -361,7 +357,7 @@ async function renderForm(editId) {
         location.hash = '#/registros';
       } else {
         await api('/api/records', { method: 'POST', body });
-        toast('Registro guardado');
+        toast(missing.length ? `Registro guardado (quedaron ${missing.length} campos vacíos)` : 'Registro guardado');
         renderForm(); // formulario limpio para el siguiente registro
       }
     } catch (ex) {
@@ -389,6 +385,10 @@ async function deleteRecord(id) {
 }
 
 // ---------- Lista de registros ----------
+function incompleteBadge(r) {
+  const empty = emptyFields(r);
+  return empty.length ? h('span', { class: 'badge warn', title: empty.map((f) => f.label).join(', ') }, `Incompleto (${empty.length})`) : null;
+}
 async function renderRecords(params) {
   const [rows, users, meta] = await Promise.all([
     api('/api/records?' + params.toString()),
@@ -426,7 +426,7 @@ async function renderRecords(params) {
   const showAuthor = isAdmin();
   const head = [...(showAuthor ? ['Registrado por'] : []), ...fields.map((f) => f.label), ...(isAdmin() ? [''] : [])];
   const cell = (r, f) => {
-    if (f.key === 'fecha') return fmtDate(r.fecha);
+    if (f.key === 'fecha') return [fmtDate(r.fecha), ' ', incompleteBadge(r)];
     if (f.type === 'number') return fmtNum(r[f.key]);
     return r[f.key];
   };
@@ -443,7 +443,7 @@ async function renderRecords(params) {
           h('button', { class: 'btn sm danger', onclick: () => deleteRecord(r.id) }, 'Eliminar'))) : null)))));
 
   const cards = h('div', { class: 'cards' }, rows.map((r) => h('div', { class: 'rec-card' },
-    h('div', { class: 'top' }, h('span', {}, r.producto), h('span', { class: 'muted' }, fmtDate(r.fecha))),
+    h('div', { class: 'top' }, h('span', {}, r.producto || 'Sin producto', ' ', incompleteBadge(r)), h('span', { class: 'muted' }, fmtDate(r.fecha))),
     h('dl', {}, fields.filter((f) => f.key !== 'producto' && f.key !== 'fecha').map((f) => [h('dt', {}, f.label), h('dd', {}, cell(r, f))]),
       showAuthor ? [h('dt', {}, 'Registrado por'), h('dd', {}, `${r.created_by_name} · ${fmtStamp(r.created_at)}`)] : null,
       showAuthor && r.updated_by_name ? [h('dt', {}, 'Editado por'), h('dd', {}, `${r.updated_by_name} · ${fmtStamp(r.updated_at)}`)] : null),

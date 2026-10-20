@@ -146,30 +146,33 @@ async function body(req) {
 const clean = (v) => String(v ?? '').trim().replace(/\s+/g, ' ').slice(0, 200);
 const same = (a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }) === 0;
 
+// Los campos son opcionales: un registro puede guardarse incompleto y llenarse después.
+// Solo se rechazan valores con formato inválido o un registro sin ningún dato.
 function validateRecord(b) {
   const rec = {};
-  const missing = [];
+  const invalid = [];
   for (const f of FIELDS) {
-    let v = b[f.key];
-    if (f.type === 'number') {
-      v = Number(String(v ?? '').replace(',', '.'));
-      if (!Number.isFinite(v) || v < 0 || String(b[f.key] ?? '').trim() === '') { missing.push(f.label); continue; }
-    } else {
-      v = clean(v);
-      if (!v) { missing.push(f.label); continue; }
-      if (f.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) { missing.push(f.label); continue; }
-      if (f.type === 'time' && !/^\d{2}:\d{2}$/.test(v)) { missing.push(f.label); continue; }
+    const raw = String(b[f.key] ?? '').trim();
+    let v = '';
+    if (raw && f.type === 'number') {
+      v = Number(raw.replace(',', '.'));
+      if (!Number.isFinite(v) || v < 0) { invalid.push(f.label); continue; }
+    } else if (raw) {
+      v = clean(raw);
+      if (f.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) { invalid.push(f.label); continue; }
+      if (f.type === 'time' && !/^\d{2}:\d{2}$/.test(v)) { invalid.push(f.label); continue; }
     }
     rec[f.key] = v;
   }
-  if (missing.length) throw new HttpError(400, `Faltan o son inválidos: ${missing.join(', ')}`);
+  if (invalid.length) throw new HttpError(400, `Revisa estos campos: ${invalid.join(', ')}`);
+  if (FIELDS.every((f) => f.key === 'fecha' || rec[f.key] === '')) throw new HttpError(400, 'Llena al menos un dato además de la fecha');
   return rec;
 }
 // Agrega al catálogo los valores nuevos que traiga un registro.
 async function rememberOptions(rec, userId) {
   await mutate('options', emptyColl(), (opts) => {
     for (const field of OPTION_FIELDS) {
-      if (!opts.items.some((o) => o.field === field && same(o.value, rec[field]))) {
+      if (rec[field] && !opts.items.some((o) => o.field === field && same(o.value, rec[field]))) {
         opts.items.push({ id: ++opts.seq, field, value: rec[field], created_by: userId, created_at: nowSql() });
       }
     }
@@ -189,7 +192,7 @@ function filterRecords(records, users, user, q) {
     const s = q.get('buscar').toLowerCase();
     rows = rows.filter((r) => ['producto', 'ingrediente', 'aplicador', 'seccion', 'tipo_aplicacion'].some((k) => String(r[k]).toLowerCase().includes(s)));
   }
-  rows = [...rows].sort((a, b) => b.fecha.localeCompare(a.fecha) || b.hora_inicio.localeCompare(a.hora_inicio) || b.id - a.id);
+  rows = [...rows].sort((a, b) => String(b.fecha).localeCompare(a.fecha) || String(b.hora_inicio).localeCompare(a.hora_inicio) || b.id - a.id);
   return rows.slice(0, 5000).map((r) => decorate(r, users));
 }
 function csvCell(v) {
@@ -334,8 +337,8 @@ async function route(req, context) {
     const productos = {};
     const secciones = {};
     for (const r of [...records.items].sort((a, b) => a.id - b.id)) {
-      productos[r.producto] = { tipo_producto: r.tipo_producto, ingrediente: r.ingrediente, rsco: r.rsco, unidad: r.unidad, dosis: r.dosis };
-      secciones[r.seccion] = { hectareas: r.hectareas };
+      if (r.producto) productos[r.producto] = { tipo_producto: r.tipo_producto, ingrediente: r.ingrediente, rsco: r.rsco, unidad: r.unidad, dosis: r.dosis };
+      if (r.seccion && r.hectareas !== '') secciones[r.seccion] = { hectareas: r.hectareas };
     }
     return json(200, { productos, secciones });
   }
