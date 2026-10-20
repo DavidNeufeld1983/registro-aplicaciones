@@ -1,5 +1,5 @@
 // Guarda la interfaz para que la app abra rápido; los datos siempre vienen del servidor.
-const CACHE = 'registro-v2';
+const CACHE = 'registro-v3';
 const SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/icon.svg', '/manifest.webmanifest'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

@@ -198,3 +198,18 @@ table.records { font-size: 13px; }
 /* Hoja editable antes de imprimir */
 .print-sheet[contenteditable]:focus { outline: none; }
 @media screen { .print-sheet td, .print-sheet .line { cursor: text; } }
+
+/* Fecha y hora: en iPhone/iPad estos cuadros tienen un ancho mínimo propio y se salían de su columna */
+input[type="date"], input[type="time"] {
+  -webkit-appearance: none; appearance: none;
+  display: block; min-width: 0; max-width: 100%; width: 100%;
+  height: 46px; line-height: 24px;
+}
+input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+input[type="date"]::-webkit-calendar-picker-indicator, input[type="time"]::-webkit-calendar-picker-indicator { margin-left: 4px; }
+.filters .field, .grid .field { min-width: 0; }
+.filters { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+@media (max-width: 640px) {
+  .filters { grid-template-columns: 1fr 1fr; }
+  .filters .field:has(input[type="search"]), .filters .field:has(select) { grid-column: 1 / -1; }
+}
